@@ -1,0 +1,609 @@
+-- Удаление старого меню если оно есть
+local oldMenu = game.CoreGui:FindFirstChild("BlobmanMenu")
+if oldMenu then
+    oldMenu:Destroy()
+end
+
+-- Переменные для показа/скрытия меню
+local menuVisible = false
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local TweenService = game:GetService("TweenService")
+
+-- Для управления камерой от первого/третьего лица
+local cameraUnlocked = false
+local mouseLockConnection = nil
+
+-- Создание нового GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "BlobmanMenu"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = game.CoreGui
+
+-- Главное окно
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 450, 0, 300)
+MainFrame.Position = UDim2.new(0.5, -225, 0.5, -150)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Visible = false
+MainFrame.Parent = ScreenGui
+
+local UICorner_Main = Instance.new("UICorner")
+UICorner_Main.CornerRadius = UDim.new(0, 12)
+UICorner_Main.Parent = MainFrame
+
+-- Создаем тень для главного окна
+local DropShadow = Instance.new("ImageLabel")
+DropShadow.Name = "DropShadow"
+DropShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+DropShadow.BackgroundTransparency = 1
+DropShadow.Position = UDim2.new(0.5, 0, 0.5, 0)
+DropShadow.Size = UDim2.new(1, 30, 1, 30)
+DropShadow.ZIndex = -1
+DropShadow.Image = "rbxassetid://6014261993"
+DropShadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+DropShadow.ImageTransparency = 0.6
+DropShadow.ScaleType = Enum.ScaleType.Slice
+DropShadow.SliceCenter = Rect.new(49, 49, 450, 450)
+DropShadow.Parent = MainFrame
+
+-- Заголовок
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 40)
+TitleBar.Position = UDim2.new(0, 0, 0, 0)
+TitleBar.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = MainFrame
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 12)
+TitleCorner.Parent = TitleBar
+
+-- Удаляем нижние изгибы у заголовка
+local TitleCoverBottom = Instance.new("Frame")
+TitleCoverBottom.Size = UDim2.new(1, 0, 0, 12)
+TitleCoverBottom.Position = UDim2.new(0, 0, 1, -12)
+TitleCoverBottom.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+TitleCoverBottom.BorderSizePixel = 0
+TitleCoverBottom.Parent = TitleBar
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, -40, 1, 0)
+TitleLabel.Position = UDim2.new(0, 15, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "Blobman Menu"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextSize = 18
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = TitleBar
+
+-- Кнопка закрытия
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0, 30, 0, 30)
+CloseButton.Position = UDim2.new(1, -40, 0, 5)
+CloseButton.BackgroundColor3 = Color3.fromRGB(255, 75, 75)
+CloseButton.Text = "X"
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.TextSize = 14
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.Parent = TitleBar
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 6)
+CloseCorner.Parent = CloseButton
+
+-- Функция для разблокировки/блокировки камеры
+local function toggleCameraLock(unlock)
+    if unlock then
+        -- Разблокируем камеру (режим от 3-го лица)
+        UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+        UserInputService.MouseIconEnabled = true
+        cameraUnlocked = true
+    else
+        -- Блокируем камеру (режим от 1-го лица)
+        UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+        UserInputService.MouseIconEnabled = false
+        cameraUnlocked = false
+    end
+end
+
+-- Обработка закрытия меню
+CloseButton.MouseButton1Click:Connect(function()
+    menuVisible = false
+    MainFrame.Visible = false
+    toggleCameraLock(false) -- Блокируем камеру при закрытии меню
+end)
+
+-- Переключение видимости меню клавишей G
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.G then
+        menuVisible = not menuVisible
+        MainFrame.Visible = menuVisible
+        toggleCameraLock(menuVisible) -- Разблокируем/блокируем камеру в зависимости от видимости меню
+    end
+end)
+
+-- Рабочая область под заголовком
+local ContentFrame = Instance.new("Frame")
+ContentFrame.Size = UDim2.new(1, -20, 1, -55)
+ContentFrame.Position = UDim2.new(0, 10, 0, 45)
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.Parent = MainFrame
+
+-- Вкладки (создаем панель навигации)
+local NavFrame = Instance.new("Frame")
+NavFrame.Size = UDim2.new(0, 130, 1, 0)
+NavFrame.Position = UDim2.new(0, 0, 0, 0)
+NavFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+NavFrame.BorderSizePixel = 0
+NavFrame.Parent = ContentFrame
+
+local NavCorner = Instance.new("UICorner")
+NavCorner.CornerRadius = UDim.new(0, 8)
+NavCorner.Parent = NavFrame
+
+-- Контейнер для контента вкладок
+local TabContentFrame = Instance.new("Frame")
+TabContentFrame.Size = UDim2.new(1, -140, 1, 0)
+TabContentFrame.Position = UDim2.new(0, 140, 0, 0)
+TabContentFrame.BackgroundTransparency = 1
+TabContentFrame.Parent = ContentFrame
+
+-- Создание кнопок вкладок
+local function createTabButton(text, pos)
+    local TabButton = Instance.new("TextButton")
+    TabButton.Size = UDim2.new(1, -20, 0, 35)
+    TabButton.Position = UDim2.new(0, 10, 0, pos)
+    TabButton.Text = text
+    TabButton.Font = Enum.Font.GothamSemibold
+    TabButton.TextSize = 14
+    TabButton.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    TabButton.TextColor3 = Color3.new(1, 1, 1)
+    TabButton.Parent = NavFrame
+    
+    local TabCorner = Instance.new("UICorner")
+    TabCorner.CornerRadius = UDim.new(0, 6)
+    TabCorner.Parent = TabButton
+    
+    return TabButton
+end
+
+local Tab1Button = createTabButton("Главная", 10)
+local Tab2Button = createTabButton("Телепорт", 55)
+local Tab3Button = createTabButton("Настройки", 100)
+
+-- Контейнеры вкладок
+local Tab1Frame = Instance.new("Frame")
+Tab1Frame.Size = UDim2.new(1, 0, 1, 0)
+Tab1Frame.BackgroundTransparency = 1
+Tab1Frame.Visible = true
+Tab1Frame.Parent = TabContentFrame
+
+local Tab2Frame = Instance.new("Frame")
+Tab2Frame.Size = UDim2.new(1, 0, 1, 0)
+Tab2Frame.BackgroundTransparency = 1
+Tab2Frame.Visible = false
+Tab2Frame.Parent = TabContentFrame
+
+local Tab3Frame = Instance.new("Frame")
+Tab3Frame.Size = UDim2.new(1, 0, 1, 0)
+Tab3Frame.BackgroundTransparency = 1
+Tab3Frame.Visible = false
+Tab3Frame.Parent = TabContentFrame
+
+-- Функция для создания красивых кнопок
+local function createStyledButton(parent, text, pos, color)
+    local Button = Instance.new("TextButton")
+    Button.Size = UDim2.new(1, 0, 0, 40)
+    Button.Position = pos
+    Button.BackgroundColor3 = color
+    Button.Text = text
+    Button.Font = Enum.Font.GothamBold
+    Button.TextSize = 16
+    Button.TextColor3 = Color3.new(1, 1, 1)
+    Button.Parent = parent
+    
+    local ButtonCorner = Instance.new("UICorner")
+    ButtonCorner.CornerRadius = UDim.new(0, 8)
+    ButtonCorner.Parent = Button
+    
+    -- Эффект при наведении
+    Button.MouseEnter:Connect(function()
+        Button.BackgroundColor3 = Color3.new(
+            math.min(color.R + 0.1, 1),
+            math.min(color.G + 0.1, 1),
+            math.min(color.B + 0.1, 1)
+        )
+    end)
+    
+    Button.MouseLeave:Connect(function()
+        Button.BackgroundColor3 = color
+    end)
+    
+    return Button
+end
+
+-- Содержимое Главной вкладки
+local WelcomeLabel = Instance.new("TextLabel")
+WelcomeLabel.Size = UDim2.new(1, 0, 0, 30)
+WelcomeLabel.Position = UDim2.new(0, 0, 0, 10)
+WelcomeLabel.BackgroundTransparency = 1
+WelcomeLabel.Text = "Добро пожаловать в меню Blobman"
+WelcomeLabel.TextColor3 = Color3.new(1, 1, 1)
+WelcomeLabel.Font = Enum.Font.GothamBold
+WelcomeLabel.TextSize = 18
+WelcomeLabel.Parent = Tab1Frame
+
+-- Добавление версии
+local VersionLabel = Instance.new("TextLabel")
+VersionLabel.Size = UDim2.new(1, 0, 0, 20)
+VersionLabel.Position = UDim2.new(0, 0, 0, 40)
+VersionLabel.BackgroundTransparency = 1
+VersionLabel.Text = "Версия 2.1"
+VersionLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+VersionLabel.Font = Enum.Font.Gotham
+VersionLabel.TextSize = 14
+VersionLabel.Parent = Tab1Frame
+
+-- Антиграб
+local AntiGrabEnabled = false
+local AntiGrabLoopRunning = false
+
+local AntiGrabButton = createStyledButton(
+    Tab1Frame, 
+    "Антиграб: ВЫКЛ", 
+    UDim2.new(0, 0, 0, 70), 
+    Color3.fromRGB(220, 75, 75)
+)
+
+-- Разблокировка камеры в меню
+local CameraUnlockButton = createStyledButton(
+    Tab3Frame, 
+    "Разблокировка камеры: ВЫКЛ", 
+    UDim2.new(0, 0, 0, 10), 
+    Color3.fromRGB(220, 75, 75)
+)
+
+CameraUnlockButton.MouseButton1Click:Connect(function()
+    cameraUnlocked = not cameraUnlocked
+    if cameraUnlocked then
+        CameraUnlockButton.Text = "Разблокировка камеры: ВКЛ"
+        CameraUnlockButton.BackgroundColor3 = Color3.fromRGB(75, 220, 75)
+        toggleCameraLock(true)
+    else
+        CameraUnlockButton.Text = "Разблокировка камеры: ВЫКЛ"
+        CameraUnlockButton.BackgroundColor3 = Color3.fromRGB(220, 75, 75)
+        toggleCameraLock(false)
+    end
+end)
+
+local function StartAntiGrab()
+    if AntiGrabLoopRunning then return end
+    AntiGrabLoopRunning = true
+    spawn(function()
+        while AntiGrabEnabled do
+            pcall(function()
+                game:GetService("ReplicatedStorage"):WaitForChild("CharacterEvents"):WaitForChild("Struggle"):FireServer()
+            end)
+            task.wait(0.001)
+        end
+        AntiGrabLoopRunning = false
+    end)
+end
+
+AntiGrabButton.MouseButton1Click:Connect(function()
+    AntiGrabEnabled = not AntiGrabEnabled
+    if AntiGrabEnabled then
+        AntiGrabButton.Text = "Антиграб: ВКЛ"
+        AntiGrabButton.BackgroundColor3 = Color3.fromRGB(75, 220, 75)
+    else
+        AntiGrabButton.Text = "Антиграб: ВЫКЛ"
+        AntiGrabButton.BackgroundColor3 = Color3.fromRGB(220, 75, 75)
+    end
+    StartAntiGrab()
+end)
+
+-- Телепорт и аимбот в одной функции
+local SelectedPlayer = nil
+local teleportActive = false
+
+-- Создаем надпись для выбранного игрока
+local SelectedPlayerLabel = Instance.new("TextLabel")
+SelectedPlayerLabel.Text = "Выбран: -"
+SelectedPlayerLabel.Size = UDim2.new(1, 0, 0, 25)
+SelectedPlayerLabel.Position = UDim2.new(0, 0, 0, 260)
+SelectedPlayerLabel.BackgroundTransparency = 1
+SelectedPlayerLabel.Font = Enum.Font.GothamSemibold
+SelectedPlayerLabel.TextSize = 14
+SelectedPlayerLabel.TextColor3 = Color3.new(1, 1, 1)
+SelectedPlayerLabel.Parent = Tab2Frame
+
+-- Создаем рамку для списка игроков с тенью
+local PlayerListFrame = Instance.new("Frame")
+PlayerListFrame.Size = UDim2.new(1, 0, 0, 250)
+PlayerListFrame.Position = UDim2.new(0, 0, 0, 0)
+PlayerListFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+PlayerListFrame.Parent = Tab2Frame
+
+local PlayerListCorner = Instance.new("UICorner")
+PlayerListCorner.CornerRadius = UDim.new(0, 8)
+PlayerListCorner.Parent = PlayerListFrame
+
+local PlayerListShadow = Instance.new("ImageLabel")
+PlayerListShadow.Name = "Shadow"
+PlayerListShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+PlayerListShadow.BackgroundTransparency = 1
+PlayerListShadow.Position = UDim2.new(0.5, 0, 0.5, 0)
+PlayerListShadow.Size = UDim2.new(1, 20, 1, 20)
+PlayerListShadow.ZIndex = -1
+PlayerListShadow.Image = "rbxassetid://6014261993"
+PlayerListShadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+PlayerListShadow.ImageTransparency = 0.6
+PlayerListShadow.ScaleType = Enum.ScaleType.Slice
+PlayerListShadow.SliceCenter = Rect.new(49, 49, 450, 450)
+PlayerListShadow.Parent = PlayerListFrame
+
+local PlayerScroll = Instance.new("ScrollingFrame")
+PlayerScroll.Size = UDim2.new(1, -16, 1, -16)
+PlayerScroll.Position = UDim2.new(0, 8, 0, 8)
+PlayerScroll.BackgroundTransparency = 1
+PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+PlayerScroll.ScrollBarThickness = 4
+PlayerScroll.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 120)
+PlayerScroll.Parent = PlayerListFrame
+
+-- Настройки для телепорта и аимбота
+local cycleTimeLabel = Instance.new("TextLabel")
+cycleTimeLabel.Size = UDim2.new(0, 150, 0, 30)
+cycleTimeLabel.Position = UDim2.new(0, 0, 0, 60)
+cycleTimeLabel.BackgroundTransparency = 1
+cycleTimeLabel.Text = "Время цикла (сек):"
+cycleTimeLabel.TextColor3 = Color3.new(1, 1, 1)
+cycleTimeLabel.Font = Enum.Font.GothamSemibold
+cycleTimeLabel.TextSize = 14
+cycleTimeLabel.TextXAlignment = Enum.TextXAlignment.Left
+cycleTimeLabel.Parent = Tab3Frame
+
+local cycleTimeInput = Instance.new("TextBox")
+cycleTimeInput.Size = UDim2.new(0, 60, 0, 30)
+cycleTimeInput.Position = UDim2.new(0, 160, 0, 60)
+cycleTimeInput.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+cycleTimeInput.Text = "3"
+cycleTimeInput.Font = Enum.Font.Gotham
+cycleTimeInput.TextSize = 14
+cycleTimeInput.TextColor3 = Color3.new(1, 1, 1)
+cycleTimeInput.Parent = Tab3Frame
+
+local cycleTimeCorner = Instance.new("UICorner")
+cycleTimeCorner.CornerRadius = UDim.new(0, 6)
+cycleTimeCorner.Parent = cycleTimeInput
+
+-- Функция для выполнения телепорта к игроку с аимботом и триггер ботом
+local function teleportToPlayer(player)
+    if teleportActive then return end
+    
+    local lp = game.Players.LocalPlayer
+    if not player or not player.Character or not lp.Character then return end
+    
+    local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+    local playerHRP = lp.Character:FindFirstChild("HumanoidRootPart")
+    
+    if not targetHRP or not playerHRP then return end
+    
+    -- Запоминаем начальную позицию
+    local startPosition = playerHRP.CFrame
+    
+    -- Получаем время цикла из поля ввода
+    local cycleTime = tonumber(cycleTimeInput.Text) or 3
+    if cycleTime < 0.5 then cycleTime = 0.5 end -- Минимальное время
+    
+    -- Активируем телепорт
+    teleportActive = true
+    
+    -- Создаем статус для отображения прогресса
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Size = UDim2.new(1, 0, 0, 25)
+    statusLabel.Position = UDim2.new(0, 0, 0, 260)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Text = "Телепорт активен..."
+    statusLabel.TextColor3 = Color3.fromRGB(75, 220, 75)
+    statusLabel.Font = Enum.Font.GothamBold
+    statusLabel.TextSize = 14
+    statusLabel.Parent = Tab2Frame
+    
+    -- Обхождение потенциальных ограничений телепорта
+    local offset = Vector3.new(0, 2, 0) -- Небольшое смещение вверх
+    
+    -- Создаем функцию безопасного телепорта
+    local function safeTeleport()
+        if not player or not player.Character or not lp.Character then return false end
+        
+        local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        local playerHRP = lp.Character:FindFirstChild("HumanoidRootPart")
+        
+        if not targetHRP or not playerHRP then return false end
+        
+        -- Плавный телепорт (уменьшает шансы обнаружения)
+        playerHRP.CFrame = CFrame.new(targetHRP.Position + offset, targetHRP.Position)
+        
+        -- Пытаемся синхронизировать направление взгляда
+        lp.Character:SetPrimaryPartCFrame(
+            CFrame.new(playerHRP.Position, Vector3.new(targetHRP.Position.X, playerHRP.Position.Y, targetHRP.Position.Z))
+        )
+        
+        return true
+    end
+    
+    -- Пытаемся создать линию захвата
+    pcall(function()
+        if game:GetService("ReplicatedStorage"):FindFirstChild("GrabEvents") and 
+           game:GetService("ReplicatedStorage").GrabEvents:FindFirstChild("CreateGrabLine") then
+            game:GetService("ReplicatedStorage").GrabEvents.CreateGrabLine:FireServer(
+                targetHRP,
+                playerHRP.CFrame
+            )
+        end
+    end)
+    
+    -- Запускаем телепорт и аимбот
+    local connection = RunService.RenderStepped:Connect(function()
+        if not teleportActive then return end
+        
+        -- Проверка на успешность телепорта
+        if not safeTeleport() then
+            teleportActive = false
+            connection:Disconnect()
+        end
+    end)
+    
+    -- Возвращаемся обратно через указанное время
+    spawn(function()
+        for i = cycleTime, 1, -1 do
+            if not teleportActive then break end
+            statusLabel.Text = "Телепорт активен... " .. i .. " сек."
+            wait(1)
+        end
+        
+        -- Отключаем телепорт и возвращаемся на исходную позицию
+        teleportActive = false
+        connection:Disconnect()
+        
+        -- Телепортируемся обратно с небольшой задержкой
+        wait(0.1)
+        if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+            -- Используем TweenService для плавного возврата
+            local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            
+            local hrp = lp.Character.HumanoidRootPart
+            local tween = TweenService:Create(hrp, tweenInfo, {CFrame = startPosition})
+            tween:Play()
+            
+            -- На случай если tween не сработает
+            spawn(function()
+                wait(0.6)
+                if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+                    lp.Character.HumanoidRootPart.CFrame = startPosition
+                end
+            end)
+        end
+        
+        -- Обновляем статус
+        statusLabel.Text = "Телепорт завершен"
+        statusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+        
+        -- Удаляем статус через некоторое время
+        wait(2)
+        statusLabel:Destroy()
+    end)
+end
+
+-- Обновляем список игроков
+local function UpdatePlayerList()
+    for _, child in pairs(PlayerScroll:GetChildren()) do
+        child:Destroy()
+    end
+    
+    local yPos = 0
+    
+    for _, plr in pairs(game.Players:GetPlayers()) do
+        if plr ~= LocalPlayer then -- Не добавляем себя в список
+            local isSelected = (SelectedPlayer == plr)
+            
+            local PlrButton = Instance.new("TextButton")
+            PlrButton.Size = UDim2.new(1, -10, 0, 36)
+            PlrButton.Position = UDim2.new(0, 5, 0, yPos)
+            PlrButton.Text = plr.Name
+            PlrButton.Font = Enum.Font.GothamSemibold
+            PlrButton.TextSize = 14
+            PlrButton.BackgroundColor3 = isSelected and Color3.fromRGB(100, 150, 200) or Color3.fromRGB(50, 50, 60)
+            PlrButton.TextColor3 = Color3.new(1, 1, 1)
+            PlrButton.Parent = PlayerScroll
+            
+            local PlrCorner = Instance.new("UICorner")
+            PlrCorner.CornerRadius = UDim.new(0, 6)
+            PlrCorner.Parent = PlrButton
+            
+            -- Добавляем значок для телепорта
+            local TeleportIcon = Instance.new("TextButton")
+            TeleportIcon.Size = UDim2.new(0, 30, 0, 30)
+            TeleportIcon.Position = UDim2.new(1, -35, 0, 3)
+            TeleportIcon.Text = "➡️"
+            TeleportIcon.Font = Enum.Font.GothamSemibold
+            TeleportIcon.TextSize = 16
+            TeleportIcon.BackgroundColor3 = Color3.fromRGB(70, 70, 90)
+            TeleportIcon.TextColor3 = Color3.new(1, 1, 1)
+            TeleportIcon.Parent = PlrButton
+            
+            local IconCorner = Instance.new("UICorner")
+            IconCorner.CornerRadius = UDim.new(0, 6)
+            IconCorner.Parent = TeleportIcon
+            
+            -- При клике на игрока выбираем его
+            PlrButton.MouseButton1Click:Connect(function()
+                if SelectedPlayer == plr then
+                    SelectedPlayer = nil
+                    SelectedPlayerLabel.Text = "Выбран: -"
+                else
+                    SelectedPlayer = plr
+                    SelectedPlayerLabel.Text = "Выбран: " .. plr.Name
+                end
+                UpdatePlayerList() -- Обновляем список для подсветки выбранного
+            end)
+            
+            -- При клике на значок телепорта активируем телепорт к игроку
+            TeleportIcon.MouseButton1Click:Connect(function()
+                if not teleportActive then
+                    SelectedPlayer = plr
+                    SelectedPlayerLabel.Text = "Выбран: " .. plr.Name
+                    UpdatePlayerList()
+                    teleportToPlayer(plr)
+                end
+            end)
+            
+            yPos = yPos + 40
+        end
+    end
+    
+    PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, yPos)
+end
+
+UpdatePlayerList()
+game.Players.PlayerAdded:Connect(UpdatePlayerList)
+game.Players.PlayerRemoving:Connect(UpdatePlayerList)
+
+-- Переключение вкладок
+local function selectTab(tab)
+    Tab1Button.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    Tab2Button.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    Tab3Button.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    
+    Tab1Frame.Visible = false
+    Tab2Frame.Visible = false
+    Tab3Frame.Visible = false
+    
+    if tab == 1 then
+        Tab1Button.BackgroundColor3 = Color3.fromRGB(70, 70, 90)
+        Tab1Frame.Visible = true
+    elseif tab == 2 then
+        Tab2Button.BackgroundColor3 = Color3.fromRGB(70, 70, 90)
+        Tab2Frame.Visible = true
+    elseif tab == 3 then
+        Tab3Button.BackgroundColor3 = Color3.fromRGB(70, 70, 90)
+        Tab3Frame.Visible = true
+    end
+end
+
+Tab1Button.MouseButton1Click:Connect(function() selectTab(1) end)
+Tab2Button.MouseButton1Click:Connect(function() selectTab(2) end)
+Tab3Button.MouseButton1Click:Connect(function() selectTab(3) end)
+
+-- Инициализация
+selectTab(1) -- Начинаем с первой вкладки
