@@ -344,7 +344,6 @@ local function createMenu()
     local playerTab = createTab("Player", 2)
     local teleportTab = createTab("Teleport", 3)
     local keybindsTab = createTab("Keybinds", 4)
-    local otherTab = createTab("Other", 5)
 
     -- Пример добавления элементов на вкладку Defence
     local defenceTitle = Instance.new("TextLabel")
