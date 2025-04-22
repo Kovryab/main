@@ -344,6 +344,7 @@ local function createMenu()
     local playerTab = createTab("Player", 2)
     local teleportTab = createTab("Teleport", 3)
     local keybindsTab = createTab("Keybinds", 4)
+    local otherTab = createTab("Other", 5)
 
     -- Пример добавления элементов на вкладку Defence
     local defenceTitle = Instance.new("TextLabel")
@@ -410,9 +411,6 @@ local function createAnchor()
     cleanedModel.Parent = workspace
 end
 
--- Создаем вкладку "Other"
-local otherTab = createTab("Other", 5)  -- Создаем вкладку "Other" с порядковым номером 5
-
 -- Функция для создания переключателя коллизии воды
 local function setupWaterCollision()
     -- Создаем переключатель для коллизии воды
@@ -463,139 +461,195 @@ local function setupWaterCollision()
     waterCollisionInfo.Parent = otherTab
 end
 
-    -- Добавляем AntiGrab на вкладку Defence
-    local function setupAntiGrab()
-        -- Создаем переключатель AntiGrab
-        local antiGrabToggle = createToggle(defenceTab, "Anti Grab", 2, function(enabled)
-            if enabled then
-                -- Создание функции AntiGrab и сохранение ее для возможности остановки
-                ActiveFunctions.AntiGrab = true
-                
-                spawn(function()
-                    -- Петля, которая выполняется, пока функция активна
-                    while ActiveFunctions.AntiGrab do
-                        pcall(function()
-                            game:GetService("ReplicatedStorage"):WaitForChild("CharacterEvents"):WaitForChild("Struggle"):FireServer()
-                        end)
-                        wait(0) -- Небольшая задержка для уменьшения нагрузки
+local function setupAntiGrab()
+    local loop
+
+    createToggle(defenceTab, "Anti Grab", 2, function(enabled)
+        if enabled then
+            loop = game:GetService("RunService").Heartbeat:Connect(function()
+                game:GetService("ReplicatedStorage"):WaitForChild("CharacterEvents"):WaitForChild("Struggle"):FireServer()
+            end)
+        elseif loop then
+            loop:Disconnect()
+            loop = nil
+        end
+    end)
+
+    local info = Instance.new("TextLabel")
+    info.Size = UDim2.new(1, -20, 0, 40)
+    info.BackgroundTransparency = 1
+    info.Text = "Spams Struggle event every frame to resist grabs"
+    info.TextColor3 = Color3.fromRGB(200, 200, 200)
+    info.TextSize = 14
+    info.Font = Enum.Font.Gotham
+    info.TextWrapped = true
+    info.LayoutOrder = 3
+    info.Parent = defenceTab
+end
+
+local function setupAntiBarrier()
+    local toggle = createToggle(otherTab, "Anti Barrier", 3, function(enabled)
+        local plots = workspace:FindFirstChild("Plots")
+        if not plots then return end
+
+        for _, plot in ipairs(plots:GetChildren()) do
+            local barrierModel = plot:FindFirstChild("Barrier")
+            if barrierModel then
+                for _, part in ipairs(barrierModel:GetChildren()) do
+                    if part:IsA("BasePart") and part.Name == "PlotBarrier" then
+                        part.CanCollide = not enabled
+                    end
+                end
+            end
+        end
+    end)
+
+    local info = Instance.new("TextLabel")
+    info.Size = UDim2.new(1, -20, 0, 40)
+    info.BackgroundTransparency = 1
+    info.Text = "Allows items to pass house barriers"
+    info.TextColor3 = Color3.fromRGB(200, 200, 200)
+    info.TextSize = 14
+    info.Font = Enum.Font.Gotham
+    info.TextWrapped = true
+    info.LayoutOrder = 4
+    info.Parent = otherTab
+end
+
+local function setupPlayerSpeed()
+    local speedSlider = createSlider(playerTab, "Custom Velocity", 0, 10000, 0, 2, function(value)
+        local player = game.Players.LocalPlayer
+        local character = player.Character or player.CharacterAdded:Wait()
+        local root = character:FindFirstChild("HumanoidRootPart")
+
+        -- Удаляем старый BodyVelocity
+        if root then
+            local existing = root:FindFirstChild("SpeedVelocity")
+            if existing then existing:Destroy() end
+
+            -- Если значение больше 0, создаём новый
+            if value > 0 then
+                local bv = Instance.new("BodyVelocity")
+                bv.Name = "SpeedVelocity"
+                bv.Velocity = character.Humanoid.MoveDirection * value
+                bv.MaxForce = Vector3.new(1e5, 0, 1e5)
+                bv.Parent = root
+
+                -- Обновляем каждый кадр в соответствии с направлением
+                game:GetService("RunService").RenderStepped:Connect(function()
+                    if bv and bv.Parent then
+                        bv.Velocity = character.Humanoid.MoveDirection * value
                     end
                 end)
-            else
-                -- Отключение функции
-                ActiveFunctions.AntiGrab = false
             end
-        end)
-        
-        -- Добавляем информационный текст
-        local antiGrabInfo = Instance.new("TextLabel")
-        antiGrabInfo.Size = UDim2.new(1, -20, 0, 40)
-        antiGrabInfo.BackgroundTransparency = 1
-        antiGrabInfo.Text = "Prevents other players from grabbing you by constantly calling the Struggle function"
-        antiGrabInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
-        antiGrabInfo.TextSize = 14
-        antiGrabInfo.Font = Enum.Font.Gotham
-        antiGrabInfo.TextWrapped = true
-        antiGrabInfo.LayoutOrder = 3
-        antiGrabInfo.Parent = defenceTab
-    end
+        end
+    end)
 
-    -- Функция для настройки скорости игрока
-    local function setupPlayerSpeed()
-        -- Создаем слайдер для изменения скорости
-        local speedSlider = createSlider(playerTab, "Walk Speed", 16, 100, 16, 2, function(value)
-            -- Изменяем скорость игрока
-            local player = game.Players.LocalPlayer
-            local character = player.Character or player.CharacterAdded:Wait()
-            local humanoid = character:FindFirstChild("Humanoid")
-            
-            if humanoid then
-                humanoid.WalkSpeed = value
-            end
-        end)
-        
-        -- Добавляем информационный текст
-        local speedInfo = Instance.new("TextLabel")
-        speedInfo.Size = UDim2.new(1, -20, 0, 30)
-        speedInfo.BackgroundTransparency = 1
-        speedInfo.Text = "Changes your character's walking speed (default is 16)"
-        speedInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
-        speedInfo.TextSize = 14
-        speedInfo.Font = Enum.Font.Gotham
-        speedInfo.TextWrapped = true
-        speedInfo.LayoutOrder = 3
-        speedInfo.Parent = playerTab
-        
-        -- Создаем переключатель для активации/деактивации постоянной скорости
-        local keepSpeedToggle = createToggle(playerTab, "Keep Speed On Respawn", 4, function(enabled)
-            if enabled then
-                ActiveFunctions.KeepSpeed = true
-                
-                -- Сохраняем текущую скорость
-                local currentSpeed = speedSlider.getValue()
-                
-                -- Функция для применения скорости при появлении персонажа
-                local function onCharacterAdded(character)
-                    if not ActiveFunctions.KeepSpeed then return end
-                    
-                    local humanoid = character:WaitForChild("Humanoid")
-                    humanoid.WalkSpeed = currentSpeed
-                end
-                
-                -- Соединяем с событием создания персонажа
-                game.Players.LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
-            else
-                ActiveFunctions.KeepSpeed = false
-            end
-        end)
-    end
+    -- Подпись
+    local speedInfo = Instance.new("TextLabel")
+    speedInfo.Size = UDim2.new(1, -20, 0, 30)
+    speedInfo.BackgroundTransparency = 1
+    speedInfo.Text = "Uses velocity instead of WalkSpeed"
+    speedInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
+    speedInfo.TextSize = 14
+    speedInfo.Font = Enum.Font.Gotham
+    speedInfo.TextWrapped = true
+    speedInfo.LayoutOrder = 3
+    speedInfo.Parent = playerTab
 
-    -- Функция для настройки бесконечного прыжка
-    local function setupInfiniteJump()
-        -- Создаем переключатель для бесконечного прыжка
-        local infiniteJumpToggle = createToggle(playerTab, "Infinite Jump", 5, function(enabled)
-            if enabled then
-                ActiveFunctions.InfiniteJump = true
-            else
-                ActiveFunctions.InfiniteJump = false
-            end
-        end)
-        
-        -- Добавляем информационный текст
-        local jumpInfo = Instance.new("TextLabel")
-        jumpInfo.Size = UDim2.new(1, -20, 0, 40)
-        jumpInfo.BackgroundTransparency = 1
-        jumpInfo.Text = "Allows you to jump infinitely by holding the spacebar"
-        jumpInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
-        jumpInfo.TextSize = 14
-        jumpInfo.Font = Enum.Font.Gotham
-        jumpInfo.TextWrapped = true
-        jumpInfo.LayoutOrder = 6
-        jumpInfo.Parent = playerTab
-        
-        -- Создаем слайдер для изменения силы прыжка
-        local jumpPowerSlider = createSlider(playerTab, "Jump Power", 50, 200, 50, 7, function(value)
-            -- Изменяем силу прыжка игрока
-            local player = game.Players.LocalPlayer
-            local character = player.Character or player.CharacterAdded:Wait()
-            local humanoid = character:FindFirstChild("Humanoid")
-            
-            if humanoid then
-                humanoid.JumpPower = value
-            end
-        end)
-        
-        -- Добавляем информационный текст для силы прыжка
-        local jumpPowerInfo = Instance.new("TextLabel")
-        jumpPowerInfo.Size = UDim2.new(1, -20, 0, 30)
-        jumpPowerInfo.BackgroundTransparency = 1
-        jumpPowerInfo.Text = "Changes your character's jump height (default is 50)"
-        jumpPowerInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
-        jumpPowerInfo.TextSize = 14
-        jumpPowerInfo.Font = Enum.Font.Gotham
-        jumpPowerInfo.TextWrapped = true
-        jumpPowerInfo.LayoutOrder = 8
-        jumpPowerInfo.Parent = playerTab
-    end
+    -- Toggle для постоянной скорости на респавне
+    local keepVelocityToggle = createToggle(playerTab, "Keep Velocity On Respawn", 4, function(enabled)
+        ActiveFunctions.KeepVelocity = enabled
+
+        if enabled then
+            local savedValue = speedSlider.getValue()
+
+            game.Players.LocalPlayer.CharacterAdded:Connect(function(char)
+                local root = char:WaitForChild("HumanoidRootPart")
+                task.wait(0.1)
+
+                local bv = Instance.new("BodyVelocity")
+                bv.Name = "SpeedVelocity"
+                bv.Velocity = char.Humanoid.MoveDirection * savedValue
+                bv.MaxForce = Vector3.new(1e5, 0, 1e5)
+                bv.Parent = root
+
+                game:GetService("RunService").RenderStepped:Connect(function()
+                    if bv and bv.Parent then
+                        bv.Velocity = char.Humanoid.MoveDirection * savedValue
+                    end
+                end)
+            end)
+        end
+    end)
+end
+
+local function setupInfiniteJump()
+    local jumpPower = 50
+    local activeBV = nil
+
+    -- Переключатель
+    local infiniteJumpToggle = createToggle(playerTab, "Infinite Jump", 5, function(enabled)
+        ActiveFunctions.InfiniteJump = enabled
+    end)
+
+    -- Подпись
+    local jumpInfo = Instance.new("TextLabel")
+    jumpInfo.Size = UDim2.new(1, -20, 0, 40)
+    jumpInfo.BackgroundTransparency = 1
+    jumpInfo.Text = "Allows you to fly upward by holding space"
+    jumpInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
+    jumpInfo.TextSize = 14
+    jumpInfo.Font = Enum.Font.Gotham
+    jumpInfo.TextWrapped = true
+    jumpInfo.LayoutOrder = 6
+    jumpInfo.Parent = playerTab
+
+    -- Слайдер для силы
+    local jumpPowerSlider = createSlider(playerTab, "Jump Power", 50, 200, 50, 7, function(value)
+        jumpPower = value
+    end)
+
+    -- Подпись к слайдеру
+    local jumpPowerInfo = Instance.new("TextLabel")
+    jumpPowerInfo.Size = UDim2.new(1, -20, 0, 30)
+    jumpPowerInfo.BackgroundTransparency = 1
+    jumpPowerInfo.Text = "Uses upward velocity (not Humanoid jump)"
+    jumpPowerInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
+    jumpPowerInfo.TextSize = 14
+    jumpPowerInfo.Font = Enum.Font.Gotham
+    jumpPowerInfo.TextWrapped = true
+    jumpPowerInfo.LayoutOrder = 8
+    jumpPowerInfo.Parent = playerTab
+
+    -- Обработка зажатия/отпускания пробела
+    local UIS = game:GetService("UserInputService")
+    UIS.InputBegan:Connect(function(input, processed)
+        if processed or not ActiveFunctions.InfiniteJump then return end
+        if input.KeyCode == Enum.KeyCode.Space then
+            local char = game.Players.LocalPlayer.Character
+            if not char then return end
+            local root = char:FindFirstChild("HumanoidRootPart")
+            if not root then return end
+
+            -- Создаем BodyVelocity
+            local bv = Instance.new("BodyVelocity")
+            bv.Name = "InfiniteJumpVelocity"
+            bv.Velocity = Vector3.new(0, jumpPower, 0)
+            bv.MaxForce = Vector3.new(0, 1e5, 0)
+            bv.Parent = root
+            activeBV = bv
+        end
+    end)
+
+    UIS.InputEnded:Connect(function(input)
+        if input.KeyCode == Enum.KeyCode.Space and activeBV then
+            activeBV:Destroy()
+            activeBV = nil
+        end
+    end)
+end
+
 
     -- Функция спавна паллета перед игроком
     local function spawnPallet()
@@ -923,6 +977,7 @@ end
     setupPalletKeybind()
     setupAnchorKeybind()
     setupWaterCollision()
+    setupAntiBarrier()
     setupKeyBindings()
     
     -- Устанавливаем первую вкладку как активную по умолчанию
