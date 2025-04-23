@@ -1,0 +1,606 @@
+-- Основной код библиотеки UI для MM2
+local GuiLibrary = {}
+
+-- Настройки
+GuiLibrary.Colors = {
+    Background = Color3.fromRGB(30, 30, 30),
+    Button = Color3.fromRGB(50, 50, 50),
+    ButtonHover = Color3.fromRGB(70, 70, 70),
+    ButtonActive = Color3.fromRGB(0, 150, 0),
+    Text = Color3.new(1, 1, 1),
+    Slider = Color3.fromRGB(60, 60, 60),
+    SliderFill = Color3.fromRGB(0, 150, 255)
+}
+
+-- Создание основного интерфейса
+function GuiLibrary:CreateWindow(name, position)
+    local UIS = game:GetService("UserInputService")
+    
+    -- Удаление старого GUI если существует
+    local guiParent = (gethui and gethui()) or game:GetService("CoreGui")
+    local old = guiParent:FindFirstChild(name)
+    if old then old:Destroy() end
+    
+    -- Создание нового интерфейса
+    local ScreenGui = Instance.new("ScreenGui", guiParent)
+    ScreenGui.Name = name
+    
+    local Frame = Instance.new("Frame", ScreenGui)
+    Frame.Size = UDim2.new(0, 200, 0, 30) -- Начальный размер (только заголовок)
+    Frame.Position = position or UDim2.new(0, 10, 0, 10)
+    Frame.BackgroundColor3 = self.Colors.Background
+    Frame.BorderSizePixel = 0
+    Frame.Active = true
+    Frame.Draggable = true
+    
+    local Title = Instance.new("TextLabel", Frame)
+    Title.Text = name
+    Title.Size = UDim2.new(1, 0, 0, 30)
+    Title.BackgroundTransparency = 1
+    Title.TextColor3 = self.Colors.Text
+    Title.Font = Enum.Font.SourceSansBold
+    Title.TextSize = 20
+    
+    -- Создаем контейнер для элементов
+    local Container = Instance.new("Frame", Frame)
+    Container.Name = "Container"
+    Container.Size = UDim2.new(1, 0, 0, 0) -- Динамическая высота
+    Container.Position = UDim2.new(0, 0, 0, 30) -- Под заголовком
+    Container.BackgroundColor3 = self.Colors.Background
+    Container.BorderSizePixel = 0
+    
+    -- Создаем ScrollingFrame для прокрутки
+    local ScrollFrame = Instance.new("ScrollingFrame", Container)
+    ScrollFrame.Size = UDim2.new(1, -10, 1, 0)
+    ScrollFrame.Position = UDim2.new(0, 5, 0, 0)
+    ScrollFrame.BackgroundTransparency = 1
+    ScrollFrame.ScrollBarThickness = 5
+    ScrollFrame.ScrollingDirection = Enum.ScrollingDirection.Y
+    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0) -- Будет обновляться
+    
+    local UIListLayout = Instance.new("UIListLayout", ScrollFrame)
+    UIListLayout.Padding = UDim.new(0, 5)
+    UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    
+    -- Функция для обновления размера контейнера и холста
+    local function updateSize()
+        local totalHeight = UIListLayout.AbsoluteContentSize.Y + 10
+        local maxHeight = 300 -- Максимальная высота окна
+        
+        if totalHeight > maxHeight then
+            ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
+            Container.Size = UDim2.new(1, 0, 0, maxHeight)
+            Frame.Size = UDim2.new(0, 200, 0, maxHeight + 30) -- +30 для заголовка
+        else
+            ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
+            Container.Size = UDim2.new(1, 0, 0, totalHeight)
+            Frame.Size = UDim2.new(0, 200, 0, totalHeight + 30) -- +30 для заголовка
+        end
+    end
+    
+    -- Обновление размера при изменении содержимого
+    UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateSize)
+    
+    -- Объект для хранения всех элементов и методов
+    local window = {
+        ScreenGui = ScreenGui,
+        Frame = Frame,
+        Title = Title,
+        Container = Container,
+        ScrollFrame = ScrollFrame,
+        elements = {},
+        elementCount = 0,
+        updateSize = updateSize
+    }
+    
+    -- Добавляем методы для создания элементов
+    
+    -- Создание кнопки
+    function window:AddButton(text, callback)
+        self.elementCount = self.elementCount + 1
+        
+        local Button = Instance.new("TextButton", self.ScrollFrame)
+        Button.Name = "Button_" .. text
+        Button.Text = text
+        Button.Size = UDim2.new(1, -10, 0, 30)
+        Button.LayoutOrder = self.elementCount
+        Button.BackgroundColor3 = GuiLibrary.Colors.Button
+        Button.TextColor3 = GuiLibrary.Colors.Text
+        Button.Font = Enum.Font.SourceSans
+        Button.TextSize = 16
+        Button.BorderSizePixel = 0
+        
+        -- Эффекты при наведении
+        Button.MouseEnter:Connect(function()
+            Button.BackgroundColor3 = GuiLibrary.Colors.ButtonHover
+        end)
+        
+        Button.MouseLeave:Connect(function()
+            Button.BackgroundColor3 = GuiLibrary.Colors.Button
+        end)
+        
+        -- Обработчик клика
+        Button.MouseButton1Click:Connect(function()
+            callback()
+        end)
+        
+        -- Добавляем в коллекцию элементов
+        self.elements[text] = {
+            type = "button",
+            instance = Button,
+            setText = function(newText)
+                Button.Text = newText
+            end,
+            setActive = function(active)
+                if active then
+                    Button.BackgroundColor3 = GuiLibrary.Colors.ButtonActive
+                else
+                    Button.BackgroundColor3 = GuiLibrary.Colors.Button
+                end
+            end
+        }
+        
+        self.updateSize()
+        return self.elements[text]
+    end
+    
+    -- Создание переключателя (Toggle)
+    function window:AddToggle(text, default, callback)
+        self.elementCount = self.elementCount + 1
+        
+        local Toggle = Instance.new("Frame", self.ScrollFrame)
+        Toggle.Name = "Toggle_" .. text
+        Toggle.Size = UDim2.new(1, -10, 0, 30)
+        Toggle.BackgroundColor3 = GuiLibrary.Colors.Button
+        Toggle.BorderSizePixel = 0
+        Toggle.LayoutOrder = self.elementCount
+        
+        local Label = Instance.new("TextLabel", Toggle)
+        Label.Text = text
+        Label.Size = UDim2.new(0.7, 0, 1, 0)
+        Label.BackgroundTransparency = 1
+        Label.TextColor3 = GuiLibrary.Colors.Text
+        Label.Font = Enum.Font.SourceSans
+        Label.TextSize = 16
+        Label.TextXAlignment = Enum.TextXAlignment.Left
+        Label.Position = UDim2.new(0, 10, 0, 0)
+        
+        local Button = Instance.new("TextButton", Toggle)
+        Button.Text = default and "ВКЛ" or "ВЫКЛ"
+        Button.Size = UDim2.new(0.3, -10, 1, -10)
+        Button.Position = UDim2.new(0.7, 5, 0, 5)
+        Button.BackgroundColor3 = default and GuiLibrary.Colors.ButtonActive or GuiLibrary.Colors.Button
+        Button.TextColor3 = GuiLibrary.Colors.Text
+        Button.Font = Enum.Font.SourceSansBold
+        Button.TextSize = 14
+        Button.BorderSizePixel = 0
+        
+        local enabled = default or false
+        
+        -- Обработчик клика
+        Button.MouseButton1Click:Connect(function()
+            enabled = not enabled
+            Button.Text = enabled and "ВКЛ" or "ВЫКЛ"
+            Button.BackgroundColor3 = enabled and GuiLibrary.Colors.ButtonActive or GuiLibrary.Colors.Button
+            callback(enabled)
+        end)
+        
+        -- Добавляем в коллекцию элементов
+        self.elements[text] = {
+            type = "toggle",
+            instance = Toggle,
+            button = Button,
+            value = enabled,
+            setValue = function(value)
+                enabled = value
+                Button.Text = enabled and "ВКЛ" or "ВЫКЛ"
+                Button.BackgroundColor3 = enabled and GuiLibrary.Colors.ButtonActive or GuiLibrary.Colors.Button
+            end,
+            getValue = function()
+                return enabled
+            end
+        }
+        
+        self.updateSize()
+        return self.elements[text]
+    end
+    
+    -- Создание слайдера
+    function window:AddSlider(text, min, max, default, callback)
+        self.elementCount = self.elementCount + 1
+        
+        local SliderFrame = Instance.new("Frame", self.ScrollFrame)
+        SliderFrame.Name = "Slider_" .. text
+        SliderFrame.Size = UDim2.new(1, -10, 0, 50)
+        SliderFrame.BackgroundColor3 = GuiLibrary.Colors.Button
+        SliderFrame.BorderSizePixel = 0
+        SliderFrame.LayoutOrder = self.elementCount
+        
+        local Label = Instance.new("TextLabel", SliderFrame)
+        Label.Text = text .. ": " .. default
+        Label.Size = UDim2.new(1, -20, 0, 25)
+        Label.Position = UDim2.new(0, 10, 0, 0)
+        Label.BackgroundTransparency = 1
+        Label.TextColor3 = GuiLibrary.Colors.Text
+        Label.Font = Enum.Font.SourceSans
+        Label.TextSize = 14
+        Label.TextXAlignment = Enum.TextXAlignment.Left
+        
+        local SliderBG = Instance.new("Frame", SliderFrame)
+        SliderBG.Name = "SliderBG"
+        SliderBG.Size = UDim2.new(1, -20, 0, 15)
+        SliderBG.Position = UDim2.new(0, 10, 0, 30)
+        SliderBG.BackgroundColor3 = GuiLibrary.Colors.Slider
+        SliderBG.BorderSizePixel = 0
+        
+        local SliderFill = Instance.new("Frame", SliderBG)
+        SliderFill.Name = "SliderFill"
+        
+        -- Рассчитываем начальное значение в процентах
+        local valuePercent = (default - min) / (max - min)
+        SliderFill.Size = UDim2.new(valuePercent, 0, 1, 0)
+        
+        SliderFill.BackgroundColor3 = GuiLibrary.Colors.SliderFill
+        SliderFill.BorderSizePixel = 0
+        
+        local SliderButton = Instance.new("TextButton", SliderBG)
+        SliderButton.Name = "SliderButton"
+        SliderButton.Size = UDim2.new(1, 0, 1, 0)
+        SliderButton.BackgroundTransparency = 1
+        SliderButton.Text = ""
+        
+        local value = default
+        local dragging = false
+        
+        -- Обработка перетаскивания
+        SliderButton.MouseButton1Down:Connect(function()
+            dragging = true
+        end)
+        
+        UIS.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging = false
+            end
+        end)
+        
+        UIS.InputChanged:Connect(function(input)
+            if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                local mousePos = input.Position.X
+                local sliderPos = SliderBG.AbsolutePosition.X
+                local sliderSize = SliderBG.AbsoluteSize.X
+                
+                local relativePos = math.clamp(mousePos - sliderPos, 0, sliderSize)
+                local percent = relativePos / sliderSize
+                
+                SliderFill.Size = UDim2.new(percent, 0, 1, 0)
+                
+                value = min + (max - min) * percent
+                value = math.floor(value * 100) / 100 -- Округляем до 2 знаков
+                
+                Label.Text = text .. ": " .. value
+                callback(value)
+            end
+        end)
+        
+        -- Добавляем в коллекцию элементов
+        self.elements[text] = {
+            type = "slider",
+            instance = SliderFrame,
+            value = value,
+            setValue = function(newValue)
+                value = math.clamp(newValue, min, max)
+                local percent = (value - min) / (max - min)
+                SliderFill.Size = UDim2.new(percent, 0, 1, 0)
+                Label.Text = text .. ": " .. value
+            end,
+            getValue = function()
+                return value
+            end
+        }
+        
+        self.updateSize()
+        return self.elements[text]
+    end
+    
+    -- Создание выпадающего списка
+    function window:AddDropdown(text, options, default, callback)
+        self.elementCount = self.elementCount + 1
+        
+        local DropdownFrame = Instance.new("Frame", self.ScrollFrame)
+        DropdownFrame.Name = "Dropdown_" .. text
+        DropdownFrame.Size = UDim2.new(1, -10, 0, 60)
+        DropdownFrame.BackgroundColor3 = GuiLibrary.Colors.Button
+        DropdownFrame.BorderSizePixel = 0
+        DropdownFrame.LayoutOrder = self.elementCount
+        
+        local Label = Instance.new("TextLabel", DropdownFrame)
+        Label.Text = text
+        Label.Size = UDim2.new(1, -20, 0, 25)
+        Label.Position = UDim2.new(0, 10, 0, 0)
+        Label.BackgroundTransparency = 1
+        Label.TextColor3 = GuiLibrary.Colors.Text
+        Label.Font = Enum.Font.SourceSans
+        Label.TextSize = 14
+        Label.TextXAlignment = Enum.TextXAlignment.Left
+        
+        local DropButton = Instance.new("TextButton", DropdownFrame)
+        DropButton.Text = default or "Выбрать..."
+        DropButton.Size = UDim2.new(1, -20, 0, 25)
+        DropButton.Position = UDim2.new(0, 10, 0, 30)
+        DropButton.BackgroundColor3 = GuiLibrary.Colors.Button
+        DropButton.TextColor3 = GuiLibrary.Colors.Text
+        DropButton.Font = Enum.Font.SourceSans
+        DropButton.TextSize = 14
+        DropButton.BorderSizePixel = 0
+        
+        -- Создаем выпадающий список
+        local OptionsFrame = Instance.new("Frame", ScreenGui)
+        OptionsFrame.Name = "Options_" .. text
+        OptionsFrame.Size = UDim2.new(0, 180, 0, #options * 25)
+        OptionsFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        OptionsFrame.BorderSizePixel = 0
+        OptionsFrame.Visible = false
+        OptionsFrame.ZIndex = 10
+        
+        local OptionsList = Instance.new("ScrollingFrame", OptionsFrame)
+        OptionsList.Size = UDim2.new(1, -10, 1, -10)
+        OptionsList.Position = UDim2.new(0, 5, 0, 5)
+        OptionsList.BackgroundTransparency = 1
+        OptionsList.ScrollBarThickness = 5
+        OptionsList.ZIndex = 10
+        
+        local UIListLayout = Instance.new("UIListLayout", OptionsList)
+        UIListLayout.Padding = UDim.new(0, 2)
+        
+        -- Заполняем список опциями
+        local selectedOption = default
+        
+        for i, option in ipairs(options) do
+            local OptionButton = Instance.new("TextButton", OptionsList)
+            OptionButton.Text = option
+            OptionButton.Size = UDim2.new(1, -5, 0, 25)
+            OptionButton.BackgroundColor3 = GuiLibrary.Colors.Button
+            OptionButton.TextColor3 = GuiLibrary.Colors.Text
+            OptionButton.Font = Enum.Font.SourceSans
+            OptionButton.TextSize = 14
+            OptionButton.ZIndex = 10
+            
+            OptionButton.MouseButton1Click:Connect(function()
+                selectedOption = option
+                DropButton.Text = option
+                OptionsFrame.Visible = false
+                callback(option)
+            end)
+        end
+        
+        -- Обновляем размер списка
+        OptionsList.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y)
+        
+        -- Открытие/закрытие выпадающего списка
+        DropButton.MouseButton1Click:Connect(function()
+            OptionsFrame.Position = UDim2.new(
+                0, DropButton.AbsolutePosition.X,
+                0, DropButton.AbsolutePosition.Y + DropButton.AbsoluteSize.Y
+            )
+            OptionsFrame.Visible = not OptionsFrame.Visible
+        end)
+        
+        -- Закрытие списка при клике вне него
+        UIS.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                local mousePos = UIS:GetMouseLocation()
+                local framePos = OptionsFrame.AbsolutePosition
+                local frameSize = OptionsFrame.AbsoluteSize
+                
+                if OptionsFrame.Visible and (
+                    mousePos.X < framePos.X or 
+                    mousePos.Y < framePos.Y or 
+                    mousePos.X > framePos.X + frameSize.X or 
+                    mousePos.Y > framePos.Y + frameSize.Y
+                ) and (
+                    mousePos.X < DropButton.AbsolutePosition.X or
+                    mousePos.Y < DropButton.AbsolutePosition.Y or
+                    mousePos.X > DropButton.AbsolutePosition.X + DropButton.AbsoluteSize.X or
+                    mousePos.Y > DropButton.AbsolutePosition.Y + DropButton.AbsoluteSize.Y
+                ) then
+                    OptionsFrame.Visible = false
+                end
+            end
+        end)
+        
+        -- Добавляем в коллекцию элементов
+        self.elements[text] = {
+            type = "dropdown",
+            instance = DropdownFrame,
+            listFrame = OptionsFrame,
+            value = selectedOption,
+            setValue = function(option)
+                if table.find(options, option) then
+                    selectedOption = option
+                    DropButton.Text = option
+                end
+            end,
+            getValue = function()
+                return selectedOption
+            end,
+            updateOptions = function(newOptions)
+                -- Очищаем текущие опции
+                for _, child in pairs(OptionsList:GetChildren()) do
+                    if child:IsA("TextButton") then
+                        child:Destroy()
+                    end
+                end
+                
+                options = newOptions
+                
+                -- Заполняем список новыми опциями
+                for i, option in ipairs(options) do
+                    local OptionButton = Instance.new("TextButton", OptionsList)
+                    OptionButton.Text = option
+                    OptionButton.Size = UDim2.new(1, -5, 0, 25)
+                    OptionButton.BackgroundColor3 = GuiLibrary.Colors.Button
+                    OptionButton.TextColor3 = GuiLibrary.Colors.Text
+                    OptionButton.Font = Enum.Font.SourceSans
+                    OptionButton.TextSize = 14
+                    OptionButton.ZIndex = 10
+                    
+                    OptionButton.MouseButton1Click:Connect(function()
+                        selectedOption = option
+                        DropButton.Text = option
+                        OptionsFrame.Visible = false
+                        callback(option)
+                    end)
+                end
+                
+                -- Обновляем размер списка
+                OptionsList.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y)
+                OptionsFrame.Size = UDim2.new(0, 180, 0, math.min(#options * 25, 150))
+            end
+        }
+        
+        self.updateSize()
+        return self.elements[text]
+    end
+    
+    -- Создание текстовой метки
+    function window:AddLabel(text)
+        self.elementCount = self.elementCount + 1
+        
+        local Label = Instance.new("TextLabel", self.ScrollFrame)
+        Label.Text = text
+        Label.Size = UDim2.new(1, -10, 0, 25)
+        Label.BackgroundColor3 = GuiLibrary.Colors.Background
+        Label.TextColor3 = GuiLibrary.Colors.Text
+        Label.Font = Enum.Font.SourceSans
+        Label.TextSize = 14
+        Label.LayoutOrder = self.elementCount
+        Label.BorderSizePixel = 0
+        Label.TextXAlignment = Enum.TextXAlignment.Center
+        
+        -- Добавляем в коллекцию элементов
+        self.elements["Label_" .. self.elementCount] = {
+            type = "label",
+            instance = Label,
+            setText = function(newText)
+                Label.Text = newText
+            end
+        }
+        
+        self.updateSize()
+        return self.elements["Label_" .. self.elementCount]
+    end
+    
+    return window
+end
+
+-- Утилиты и вспомогательные функции
+function GuiLibrary:Notify(text, color, duration)
+    game.StarterGui:SetCore("ChatMakeSystemMessage", {
+        Text = text;
+        Color = color or Color3.new(1, 1, 1);
+    })
+    
+    -- Создаем визуальное уведомление
+    local notifGui = (gethui and gethui()) or game:GetService("CoreGui")
+    local notif = notifGui:FindFirstChild("NotificationGui")
+    
+    if not notif then
+        notif = Instance.new("ScreenGui", notifGui)
+        notif.Name = "NotificationGui"
+    end
+    
+    local frame = Instance.new("Frame", notif)
+    frame.Size = UDim2.new(0, 250, 0, 50)
+    frame.Position = UDim2.new(1, -260, 0.8, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    frame.BorderSizePixel = 0
+    
+    local message = Instance.new("TextLabel", frame)
+    message.Size = UDim2.new(1, -10, 1, -10)
+    message.Position = UDim2.new(0, 5, 0, 5)
+    message.BackgroundTransparency = 1
+    message.Text = text
+    message.TextColor3 = color or Color3.new(1, 1, 1)
+    message.Font = Enum.Font.SourceSans
+    message.TextSize = 16
+    message.TextWrapped = true
+    
+    -- Анимация появления
+    frame.Position = UDim2.new(1, 0, 0.8, 0)
+    game:GetService("TweenService"):Create(
+        frame,
+        TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+        {Position = UDim2.new(1, -260, 0.8, 0)}
+    ):Play()
+    
+    -- Удаление через определенное время
+    delay(duration or 3, function()
+        game:GetService("TweenService"):Create(
+            frame,
+            TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In),
+            {Position = UDim2.new(1, 0, 0.8, 0)}
+        ):Play()
+        
+        wait(0.5)
+        frame:Destroy()
+    end)
+end
+
+-- Добавляем функцию для создания чекбокса
+function GuiLibrary:CreateCheck(parent, text, default, callback)
+    local checkbox = Instance.new("Frame")
+    checkbox.Name = "Checkbox_" .. text
+    checkbox.Parent = parent
+    checkbox.Size = UDim2.new(0, 20, 0, 20)
+    checkbox.BackgroundColor3 = default and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(50, 50, 50)
+    checkbox.BorderSizePixel = 0
+    
+    local checkmark = Instance.new("TextLabel", checkbox)
+    checkmark.Size = UDim2.new(1, 0, 1, 0)
+    checkmark.BackgroundTransparency = 1
+    checkmark.Text = default and "✓" or ""
+    checkmark.TextColor3 = Color3.new(1, 1, 1)
+    checkmark.Font = Enum.Font.SourceSansBold
+    checkmark.TextSize = 18
+    
+    local label = Instance.new("TextLabel")
+    label.Name = "Label"
+    label.Parent = parent
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.new(1, 1, 1)
+    label.Font = Enum.Font.SourceSans
+    label.TextSize = 14
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local button = Instance.new("TextButton")
+    button.Name = "Button"
+    button.Parent = parent
+    button.BackgroundTransparency = 1
+    button.Size = UDim2.new(1, 0, 1, 0)
+    button.Text = ""
+    
+    local checked = default or false
+    
+    button.MouseButton1Click:Connect(function()
+        checked = not checked
+        checkbox.BackgroundColor3 = checked and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(50, 50, 50)
+        checkmark.Text = checked and "✓" or ""
+        callback(checked)
+    end)
+    
+    return {
+        frame = checkbox,
+        label = label,
+        setValue = function(value)
+            checked = value
+            checkbox.BackgroundColor3 = checked and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(50, 50, 50)
+            checkmark.Text = checked and "✓" or ""
+        end,
+        getValue = function()
+            return checked
+        end
+    }
+end
+
+return GuiLibrary
