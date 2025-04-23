@@ -4,6 +4,8 @@ if oldGui then
     oldGui:Destroy()
 end
 
+local ApiFTAP = loadstring(game:HttpGet("https://raw.githubusercontent.com/Oxwoey/FTAP-Module/refs/heads/main/Module/ModuleFTAP"))()
+
 -- СОЗДАНИЕ ГЛОБАЛЬНОЙ ПЕРЕМЕННОЙ ДЛЯ ОТСЛЕЖИВАНИЯ СОСТОЯНИЯ МЕНЮ
 getgenv().BlobmanMenuOpen = true
 
@@ -340,11 +342,13 @@ local function createMenu()
 
 
     -- СОЗДАНИЕ ВКЛАДОК
-    local defenceTab = createTab("Defence", 1)
+    local combatTab = createTab("Combat", 1)
     local playerTab = createTab("Player", 2)
     local teleportTab = createTab("Teleport", 3)
     local keybindsTab = createTab("Keybinds", 4)
     local otherTab = createTab("Other", 5)
+    local defenceTab = createTab("Defence", 6)
+    local auraTab = createTab("Aura", 7)
 
     -- Пример добавления элементов на вкладку Defence
     local defenceTitle = Instance.new("TextLabel")
@@ -461,24 +465,20 @@ local function setupWaterCollision()
     waterCollisionInfo.Parent = otherTab
 end
 
-local function setupAntiGrab()
-    local loop
-
-    createToggle(defenceTab, "Anti Grab", 2, function(enabled)
-        if enabled then
-            loop = game:GetService("RunService").Heartbeat:Connect(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("CharacterEvents"):WaitForChild("Struggle"):FireServer()
-            end)
-        elseif loop then
-            loop:Disconnect()
-            loop = nil
+local function setupAntiGrabFTAP()
+    local toggle = createToggle(defenceTab, "Anti Grab (FTAP)", 2, function(enabled)
+        local success, err = pcall(function()
+            ApiFTAP.AntiGrab(enabled)
+        end)
+        if not success then
+            warn("FTAP AntiGrab Error: ", err)
         end
     end)
 
     local info = Instance.new("TextLabel")
     info.Size = UDim2.new(1, -20, 0, 40)
     info.BackgroundTransparency = 1
-    info.Text = "Spams Struggle event every frame to resist grabs"
+    info.Text = "Enables FTAP AntiGrab via Elysium API"
     info.TextColor3 = Color3.fromRGB(200, 200, 200)
     info.TextSize = 14
     info.Font = Enum.Font.Gotham
@@ -584,6 +584,50 @@ local function setupPlayerSpeed()
     end)
 end
 
+local function setupSuperStrength()
+    local strengthValue = 150  -- Начальная сила
+
+    -- Переключатель для активации супер силы
+    local superStrengthToggle = createToggle(combatTab, "Super Strength", 5, function(enabled)
+        ActiveFunctions.SuperStrength = enabled
+        if enabled then
+            ApiFTAP.SuperStrength(true)  -- Включаем супер силу
+        else
+            ApiFTAP.SuperStrength(false)  -- Выключаем супер силу
+        end
+    end)
+
+    -- Подпись
+    local strengthInfo = Instance.new("TextLabel")
+    strengthInfo.Size = UDim2.new(1, -20, 0, 40)
+    strengthInfo.BackgroundTransparency = 1
+    strengthInfo.Text = "Gives you super strength to move heavy objects"
+    strengthInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
+    strengthInfo.TextSize = 14
+    strengthInfo.Font = Enum.Font.Gotham
+    strengthInfo.TextWrapped = true
+    strengthInfo.LayoutOrder = 6
+    strengthInfo.Parent = combatTab
+
+    -- Слайдер для силы
+    local strengthSlider = createSlider(combatTab, "Strength Power", 50, 10000, strengthValue, 7, function(value)
+        strengthValue = value
+        ApiFTAP.ValueStrength(strengthValue)  -- Устанавливаем значение силы
+    end)
+
+    -- Подпись к слайдеру
+    local strengthSliderInfo = Instance.new("TextLabel")
+    strengthSliderInfo.Size = UDim2.new(1, -20, 0, 30)
+    strengthSliderInfo.BackgroundTransparency = 1
+    strengthSliderInfo.Text = "Adjust the power of your super strength"
+    strengthSliderInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
+    strengthSliderInfo.TextSize = 14
+    strengthSliderInfo.Font = Enum.Font.Gotham
+    strengthSliderInfo.TextWrapped = true
+    strengthSliderInfo.LayoutOrder = 8
+    strengthSliderInfo.Parent = combatTab
+end
+
 local function setupInfiniteJump()
     local jumpPower = 50
     local activeBV = nil
@@ -650,63 +694,63 @@ local function setupInfiniteJump()
     end)
 end
 
+-- Функция спавна паллета перед игроком
+local function spawnPallet()
+    local player = game.Players.LocalPlayer
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+    
+    -- Получаем текущую позицию и направление персонажа
+    local currentPosition = humanoidRootPart.Position
+    local lookVector = humanoidRootPart.CFrame.LookVector
+    
+    -- Создаем позицию перед игроком (2 единицы вперед вместо 5)
+    local targetPosition = currentPosition + (lookVector * 2)
+    
+    -- Создаем CFrame, смотрящий в ту же сторону, что и игрок
+    local targetCFrame = CFrame.new(targetPosition, targetPosition + lookVector)
+    
+    -- Добавляем небольшой отступ вверх, чтобы паллет не застрял в земле
+    targetCFrame = targetCFrame * CFrame.new(0, 0.5, 0)
+    
+    -- Вызываем функцию спавна паллета
+    pcall(function()
+        local args = {
+            [1] = "PalletLightBrown",  -- Название объекта, который спавним
+            [2] = targetCFrame,        -- Позиция и ориентация
+            [3] = Vector3.new(0, 31.24, 0) -- Размер объекта
+        }
+        -- Отправляем запрос на сервер для спавна
+        game:GetService("ReplicatedStorage"):WaitForChild("MenuToys"):WaitForChild("SpawnToyRemoteFunction"):InvokeServer(unpack(args))
+    end)
+end
 
-    -- Функция спавна паллета перед игроком
-    local function spawnPallet()
-        local player = game.Players.LocalPlayer
-        local character = player.Character or player.CharacterAdded:Wait()
-        local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
-        
-        -- Получаем текущую позицию и направление персонажа
-        local currentPosition = humanoidRootPart.Position
-        local lookVector = humanoidRootPart.CFrame.LookVector
-        
-        -- Создаем позицию перед игроком (2 единицы вперед вместо 5)
-        local targetPosition = currentPosition + (lookVector * 2)
-        
-        -- Создаем CFrame смотрящий в ту же сторону, что и игрок
-        local targetCFrame = CFrame.new(targetPosition, targetPosition + lookVector)
-        
-        -- Добавляем небольшой отступ вверх, чтобы паллет не застрял в земле
-        targetCFrame = targetCFrame * CFrame.new(0, 0.5, 0)
-        
-        -- Вызываем функцию спавна паллета
-        pcall(function()
-            local args = {
-                [1] = "PalletLightBrown",
-                [2] = targetCFrame,
-                [3] = Vector3.new(0, 31.239999771118164, 0)
-            }
-            game:GetService("ReplicatedStorage"):WaitForChild("MenuToys"):WaitForChild("SpawnToyRemoteFunction"):InvokeServer(unpack(args))
-        end)
-    end
-
-    -- Добавляем функцию спавна паллета на клавишу Tab
-    local function setupPalletKeybind()
-        -- Создаем информацию о клавише
-        local palletKeybindInfo = createKeybindInfo(keybindsTab, "Spawn Pallet", "Tab", 2)
-        
-        -- Добавляем информационный текст
-        local palletInfo = Instance.new("TextLabel")
-        palletInfo.Size = UDim2.new(1, -20, 0, 40)
-        palletInfo.BackgroundTransparency = 1
-        palletInfo.Text = "Press Tab to spawn a pallet directly in front of you"
-        palletInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
-        palletInfo.TextSize = 14
-        palletInfo.Font = Enum.Font.Gotham
-        palletInfo.TextWrapped = true
-        palletInfo.LayoutOrder = 3
-        palletInfo.Parent = keybindsTab
-        
-        -- Создаем переключатель для активации/деактивации клавиши
-        local palletKeybindToggle = createToggle(keybindsTab, "Enable Pallet Keybind", 4, function(enabled)
-            if enabled then
-                ActiveKeybinds.PalletSpawn = true
-            else
-                ActiveKeybinds.PalletSpawn = false
-            end
-        end)
-    end
+-- Добавляем функцию спавна паллета на клавишу Tab
+local function setupPalletKeybind()
+    -- Создаем информацию о клавише
+    local palletKeybindInfo = createKeybindInfo(keybindsTab, "Spawn Pallet", "Tab", 2)
+    
+    -- Добавляем информационный текст
+    local palletInfo = Instance.new("TextLabel")
+    palletInfo.Size = UDim2.new(1, -20, 0, 40)
+    palletInfo.BackgroundTransparency = 1
+    palletInfo.Text = "Press Tab to spawn a pallet directly in front of you"
+    palletInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
+    palletInfo.TextSize = 14
+    palletInfo.Font = Enum.Font.Gotham
+    palletInfo.TextWrapped = true
+    palletInfo.LayoutOrder = 3
+    palletInfo.Parent = keybindsTab
+    
+    -- Создаем переключатель для активации/деактивации клавиши
+    local palletKeybindToggle = createToggle(keybindsTab, "Enable Pallet Keybind", 4, function(enabled)
+        if enabled then
+            ActiveKeybinds.PalletSpawn = true
+        else
+            ActiveKeybinds.PalletSpawn = false
+        end
+    end)
+end
 
     -- Кнопка удаления GrabPart и DragPart из модели GrabParts
 local clearGrabPartsButton = Instance.new("TextButton")
@@ -945,18 +989,7 @@ end
 local function setupAnchorKeybind()
     -- Создаем информацию о клавише
     local anchorKeybindInfo = createKeybindInfo(keybindsTab, "Duplicate GrabParts", "K", 7)
-    
-    -- Добавляем информационный текст
-    local anchorInfo = Instance.new("TextLabel")
-    anchorInfo.Size = UDim2.new(1, -20, 0, 40)
-    anchorInfo.BackgroundTransparency = 1
-    anchorInfo.Text = "Press K to duplicate GrabParts and remove sounds"
-    anchorInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
-    anchorInfo.TextSize = 14
-    anchorInfo.Font = Enum.Font.Gotham
-    anchorInfo.TextWrapped = true
-    anchorInfo.LayoutOrder = 8
-    anchorInfo.Parent = keybindsTab
+
     
     -- Создаем переключатель для активации/деактивации клавиши
     local anchorKeybindToggle = createToggle(keybindsTab, "Enable Anchor Keybind", 9, function(enabled)
@@ -968,8 +1001,71 @@ local function setupAnchorKeybind()
     end)
 end
 
+local function setupCombat()
+    -- Переключатель для Burn Grab
+    local burnGrabToggle = createToggle(combatTab, "Burn Grab", 5, function(enabled)
+        ActiveFunctions.BurnGrab = enabled
+        ApiFTAP.BurnGrab(enabled)  -- Включаем/выключаем Burn Grab
+    end)
+
+    -- Переключатель для Radiation Grab
+    local radiationGrabToggle = createToggle(combatTab, "Radiation Grab", 6, function(enabled)
+        ActiveFunctions.RadiationGrab = enabled
+        ApiFTAP.RadiationGrab(enabled)  -- Включаем/выключаем Radiation Grab
+    end)
+
+    -- Переключатель для Poison Grab
+    local poisonGrabToggle = createToggle(combatTab, "Poison Grab", 7, function(enabled)
+        ActiveFunctions.PoisonGrab = enabled
+        ApiFTAP.PoisonGrab(enabled)  -- Включаем/выключаем Poison Grab
+    end)
+
+    -- Переключатель для NoClip Grab
+    local noClipGrabToggle = createToggle(combatTab, "NoClip Grab", 8, function(enabled)
+        ActiveFunctions.NoClipGrab = enabled
+        ApiFTAP.NoClipGrab(enabled)  -- Включаем/выключаем NoClip Grab
+    end)
+
+    -- Переключатель для Kill Grab
+    local killGrabToggle = createToggle(combatTab, "Kill Grab", 9, function(enabled)
+        ActiveFunctions.KillGrab = enabled
+        ApiFTAP.KillGrab(enabled)  -- Включаем/выключаем Kill Grab
+    end)
+
+    -- Переключатель для Air Grab
+    local airGrabToggle = createToggle(combatTab, "Air Grab", 10, function(enabled)
+        ActiveFunctions.AirGrab = enabled
+        ApiFTAP.AirGrab(enabled)  -- Включаем/выключаем Air Grab
+    end)
+end
+
+local function setupAuras()
+    -- Переключатель для Magnetic Aura
+    local magneticAuraToggle = createToggle(auraTab, "Magnetic Aura", 5, function(enabled)
+        ActiveFunctions.MagneticAura = enabled
+        ApiFTAP.MagneticAura(enabled)  -- Включаем/выключаем Magnetic Aura
+    end)
+
+    -- Переключатель для Radiation Aura
+    local radiationAuraToggle = createToggle(auraTab, "Radiation Aura", 6, function(enabled)
+        ActiveFunctions.RadiationAura = enabled
+        ApiFTAP.RadiationAura(enabled)  -- Включаем/выключаем Radiation Aura
+    end)
+
+    -- Переключатель для Poison Aura
+    local poisonAuraToggle = createToggle(auraTab, "Poison Aura", 7, function(enabled)
+        ActiveFunctions.PoisonAura = enabled
+        ApiFTAP.PoisonAura(enabled)  -- Включаем/выключаем Poison Aura
+    end)
+
+    -- Переключатель для Aura WhiteList
+    local auraWhiteListToggle = createToggle(auraTab, "Aura WhiteList", 8, function(enabled)
+        ActiveFunctions.AuraWhiteList = enabled
+        ApiFTAP.AuraWhiteList(enabled)  -- Включаем/выключаем Aura WhiteList
+    end)
+
     -- Вызываем все функции настройки
-    setupAntiGrab()
+    setupAntiGrabFTAP()
     setupPlayerSpeed()
     setupInfiniteJump()
     setupNoClip()
@@ -978,6 +1074,9 @@ end
     setupAnchorKeybind()
     setupWaterCollision()
     setupAntiBarrier()
+    setupSuperStrength()
+    setupCombat()
+    setupAuras()
     setupKeyBindings()
     
     -- Устанавливаем первую вкладку как активную по умолчанию
